@@ -1,0 +1,275 @@
+// =========================================================================
+// CONFIGURATION: CHANGE THIS TO YOUR ACTUAL GEMINI ALLOWED GOOGLE GROUP EMAIL
+// =========================================================================
+const GEMINI_GROUP_EMAIL = "gemini-active-students@anexampleschool.com"; 
+
+/**
+ * Serves CORS pre-flight OPTIONS requests cleanly.
+ * This is required to prevent browsers from blocking cross-origin API calls.
+ */
+function doOptions(e) {
+  return ContentService.createTextOutput("")
+    .setMimeType(ContentService.MimeType.TEXT)
+    .setHeaders({
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Max-Age": "86400"
+    });
+}
+
+/**
+ * Serves secure incoming API POST requests from GitHub Pages.
+ */
+function doPost(e) {
+  var headers = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Max-Age": "86400"
+  };
+
+  try {
+    var requestData = JSON.parse(e.postData.contents);
+    var action = requestData.action;
+    var idToken = requestData.idToken;
+
+    // 1. Secure Cryptographic Token Authentication
+    var teacherEmail = verifyIdToken(idToken);
+    if (!teacherEmail) {
+      return sendJsonResponse({ success: false, error: "Unauthorized: Invalid or expired Google session." }, headers);
+    }
+
+    // 2. Routing Actions based on authentication scopes
+    var result;
+    if (action === "getTeacherClassrooms") {
+      result = getTeacherClassroomsForEmail(teacherEmail);
+    } else if (action === "createNewAccessGroup") {
+      result = createNewAccessGroup();
+    } else if (action === "turnOnGeminiWithTimer") {
+      result = turnOnGeminiWithTimer(requestData.courseId, requestData.durationMinutes);
+    } else if (action === "turnOffGemini") {
+      result = turnOffGemini(requestData.courseId);
+    } else {
+      throw new Error("Specified Action API context is not recognized.");
+    }
+
+    return sendJsonResponse({ success: true, data: result }, headers);
+
+  } catch (err) {
+    return sendJsonResponse({ success: false, error: err.message }, headers);
+  }
+}
+
+/**
+ * Validates Google ID token using Google API OAuth token info endpoint.
+ * Returns the verified user email address, or null if validation fails.
+ */
+function verifyIdToken(idToken) {
+  if (!idToken) return null;
+  try {
+    var response = UrlFetchApp.fetch("https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken, {
+      muteHttpExceptions: true
+    });
+    if (response.getResponseCode() === 200) {
+      var payload = JSON.parse(response.getContentText());
+      return payload.email; // Verified Google Email
+    }
+  } catch (e) {
+    Logger.log("IdToken Validation Exception: " + e.message);
+  }
+  return null;
+}
+
+/**
+ * Formats data responses as standard JSON with cross-origin CORS headers.
+ */
+function sendJsonResponse(obj, headers) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON)
+    .setHeaders(headers);
+}
+
+/**
+ * Fetches active courses matching the verified logged-in teacher email address.
+ */
+function getTeacherClassroomsForEmail(teacherEmail) {
+  try {
+    const response = Classroom.Courses.list({ teacherId: teacherEmail, courseStates: ["ACTIVE"] });
+    const courses = response.courses || [];
+    
+    return courses.map(course => ({
+      id: course.id,
+      name: course.name
+    }));
+  } catch (e) {
+    throw new Error("Classroom Directory fetch failed: " + e.message);
+  }
+}
+
+/**
+ * Automated Admin Helper: Creates the required Google Group.
+ */
+function createNewAccessGroup() {
+  try {
+    try {
+      const existingGroup = AdminDirectory.Groups.get(GEMINI_GROUP_EMAIL);
+      if (existingGroup) return "Group already exists in Directory.";
+    } catch (lookupErr) {
+      // 404 is safe to continue
+    }
+
+    const newGroupConfig = {
+      email: GEMINI_GROUP_EMAIL,
+      name: "Gemini Active Students Sandbox",
+      description: "Automated timed gatekeeper system buffer group managed via Google Classroom Add-on script mechanics."
+    };
+    
+    AdminDirectory.Groups.insert(newGroupConfig);
+    return "Successfully provisioned workspace security container.";
+  } catch (e) {
+    throw new Error("Directory automation exception mapping: " + e.message);
+  }
+}
+
+/**
+ * Turns on Gemini access AND schedules the auto-deactivation trigger.
+ */
+function turnOnGeminiWithTimer(courseId, durationMinutes) {
+  const activationStatus = turnOnGemini(courseId);
+  if (durationMinutes && durationMinutes > 0) {
+    scheduleAutoOff(courseId, durationMinutes);
+  }
+  return `${activationStatus} Auto-expiration set for ${durationMinutes} minutes.`;
+}
+
+/**
+ * Adds student directory emails to the access group.
+ */
+function turnOnGemini(courseId) {
+  let studentEmails = [];
+  let pageToken = null;
+  
+  do {
+    const response = Classroom.Courses.Students.list(courseId, { pageToken: pageToken, pageSize: 100 });
+    if (response.students) {
+      response.students.forEach(student => {
+        if (student.profile && student.profile.emailAddress) {
+          studentEmails.push(student.profile.emailAddress);
+        }
+      });
+    }
+    pageToken = response.nextPageToken;
+  } while (pageToken);
+  
+  if (studentEmails.length === 0) return "No students found to activate.";
+
+  let successCount = 0;
+  studentEmails.forEach(email => {
+    try {
+      AdminDirectory.Members.insert({ email: email, role: "MEMBER" }, GEMINI_GROUP_EMAIL);
+      successCount++;
+    } catch (err) {
+      if (err.message.indexOf("already exists") > -1) {
+        successCount++; 
+      } else {
+        throw new Error(`Admin API Error for ${email}: ` + err.message);
+      }
+    }
+  });
+
+  return `Enabled Gemini for ${successCount} students.`;
+}
+
+/**
+ * Turns off Gemini access and cleans up scheduled triggers.
+ */
+function turnOffGemini(courseId) {
+  try {
+    let studentEmails = [];
+    let pageToken = null;
+    
+    do {
+      const response = Classroom.Courses.Students.list(courseId, { pageToken: pageToken, pageSize: 100 });
+      if (response.students) {
+        response.students.forEach(student => {
+          if (student.profile && student.profile.emailAddress) {
+            studentEmails.push(student.profile.emailAddress);
+          }
+        });
+      }
+      pageToken = response.nextPageToken;
+    } while (pageToken);
+
+    let removalCount = 0;
+    studentEmails.forEach(email => {
+      try {
+        AdminDirectory.Members.remove(GEMINI_GROUP_EMAIL, email);
+        removalCount++;
+      } catch (err) {
+        // Ignored if they weren't in the group
+      }
+    });
+
+    cancelAutoOffTriggers(courseId);
+    return `Disabled Gemini access for ${removalCount} students.`;
+  } catch (e) {
+    throw new Error("Deactivation execution failure: " + e.message);
+  }
+}
+
+/**
+ * Programmatically creates a Time-driven trigger.
+ */
+function scheduleAutoOff(courseId, minutes) {
+  const fireAt = new Date(Date.now() + minutes * 60 * 1000);
+  const userProperties = PropertiesService.getScriptProperties();
+  
+  const trigger = ScriptApp.newTrigger("autoOffTriggerHandler")
+    .timeBased()
+    .at(fireAt)
+    .create();
+    
+  userProperties.setProperty(trigger.getUniqueId(), courseId);
+}
+
+/**
+ * Trigger Handler.
+ */
+function autoOffTriggerHandler(e) {
+  const triggerId = e.triggerUid;
+  const userProperties = PropertiesService.getScriptProperties();
+  const courseId = userProperties.getProperty(triggerId);
+  
+  if (courseId) {
+    try {
+      turnOffGemini(courseId);
+      userProperties.deleteProperty(triggerId);
+    } catch (err) {
+      Logger.log("Timer auto-off failed: " + err.message);
+    }
+  }
+  
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(t => {
+    if (t.getUniqueId() === triggerId) {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+}
+
+/**
+ * Cancels pending triggers.
+ */
+function cancelAutoOffTriggers(courseId) {
+  const userProperties = PropertiesService.getScriptProperties();
+  const triggers = ScriptApp.getProjectTriggers();
+  
+  triggers.forEach(t => {
+    const associatedCourseId = userProperties.getProperty(t.getUniqueId());
+    if (associatedCourseId === courseId) {
+      ScriptApp.deleteTrigger(t);
+      userProperties.deleteProperty(t.getUniqueId());
+    }
+  });
+}
