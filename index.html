@@ -1,275 +1,253 @@
-// =========================================================================
-// CONFIGURATION: CHANGE THIS TO YOUR ACTUAL GEMINI ALLOWED GOOGLE GROUP EMAIL
-// =========================================================================
-const GEMINI_GROUP_EMAIL = "gemini-active-students@anexampleschool.com"; 
-
-/**
- * Serves CORS pre-flight OPTIONS requests cleanly.
- * This is required to prevent browsers from blocking cross-origin API calls.
- */
-function doOptions(e) {
-  return ContentService.createTextOutput("")
-    .setMimeType(ContentService.MimeType.TEXT)
-    .setHeaders({
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-      "Access-Control-Max-Age": "86400"
-    });
-}
-
-/**
- * Serves secure incoming API POST requests from GitHub Pages.
- */
-function doPost(e) {
-  var headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Max-Age": "86400"
-  };
-
-  try {
-    var requestData = JSON.parse(e.postData.contents);
-    var action = requestData.action;
-    var idToken = requestData.idToken;
-
-    // 1. Secure Cryptographic Token Authentication
-    var teacherEmail = verifyIdToken(idToken);
-    if (!teacherEmail) {
-      return sendJsonResponse({ success: false, error: "Unauthorized: Invalid or expired Google session." }, headers);
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="google-site-verification" content="daBxlPtBoA4-NIi4JYqNUJ3NZmNsUWHROPgYNrpEqvk" />
+  <base target="_top">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f6f9;
+      color: #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
     }
-
-    // 2. Routing Actions based on authentication scopes
-    var result;
-    if (action === "getTeacherClassrooms") {
-      result = getTeacherClassroomsForEmail(teacherEmail);
-    } else if (action === "createNewAccessGroup") {
-      result = createNewAccessGroup();
-    } else if (action === "turnOnGeminiWithTimer") {
-      result = turnOnGeminiWithTimer(requestData.courseId, requestData.durationMinutes);
-    } else if (action === "turnOffGemini") {
-      result = turnOffGemini(requestData.courseId);
-    } else {
-      throw new Error("Specified Action API context is not recognized.");
+    .wrapper {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      width: 450px;
+      overflow: hidden;
     }
-
-    return sendJsonResponse({ success: true, data: result }, headers);
-
-  } catch (err) {
-    return sendJsonResponse({ success: false, error: err.message }, headers);
-  }
-}
-
-/**
- * Validates Google ID token using Google API OAuth token info endpoint.
- * Returns the verified user email address, or null if validation fails.
- */
-function verifyIdToken(idToken) {
-  if (!idToken) return null;
-  try {
-    var response = UrlFetchApp.fetch("https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken, {
-      muteHttpExceptions: true
-    });
-    if (response.getResponseCode() === 200) {
-      var payload = JSON.parse(response.getContentText());
-      return payload.email; // Verified Google Email
+    .tabs {
+      display: flex;
+      background: #f1f3f4;
+      border-bottom: 1px solid #ddd;
     }
-  } catch (e) {
-    Logger.log("IdToken Validation Exception: " + e.message);
-  }
-  return null;
-}
-
-/**
- * Formats data responses as standard JSON with cross-origin CORS headers.
- */
-function sendJsonResponse(obj, headers) {
-  return ContentService.createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeaders(headers);
-}
-
-/**
- * Fetches active courses matching the verified logged-in teacher email address.
- */
-function getTeacherClassroomsForEmail(teacherEmail) {
-  try {
-    const response = Classroom.Courses.list({ teacherId: teacherEmail, courseStates: ["ACTIVE"] });
-    const courses = response.courses || [];
+    .tab-button {
+      flex: 1;
+      padding: 15px;
+      background: none;
+      border: none;
+      font-size: 14px;
+      font-weight: bold;
+      color: #555;
+      cursor: pointer;
+      outline: none;
+      transition: background 0.2s, color 0.2s;
+    }
+    .tab-button:hover { background: #e8eaed; }
+    .tab-button.active {
+      background: white;
+      color: #1a73e8;
+      border-bottom: 3px solid #1a73e8;
+    }
+    .tab-content {
+      padding: 30px;
+      display: none;
+    }
+    .tab-content.active { display: block; }
     
-    return courses.map(course => ({
-      id: course.id,
-      name: course.name
-    }));
-  } catch (e) {
-    throw new Error("Classroom Directory fetch failed: " + e.message);
-  }
-}
-
-/**
- * Automated Admin Helper: Creates the required Google Group.
- */
-function createNewAccessGroup() {
-  try {
-    try {
-      const existingGroup = AdminDirectory.Groups.get(GEMINI_GROUP_EMAIL);
-      if (existingGroup) return "Group already exists in Directory.";
-    } catch (lookupErr) {
-      // 404 is safe to continue
+    h2 { color: #1a73e8; margin-top: 0; text-align: center; }
+    h3 { color: #b06000; margin-top: 0; }
+    p.subtitle { text-align: center; color: #666; margin-bottom: 25px; }
+    
+    .form-group { text-align: left; margin-bottom: 15px; }
+    label { font-size: 14px; font-weight: bold; color: #555; }
+    select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 15px;
+      box-sizing: border-box;
     }
+    .btn-container { display: flex; justify-content: space-between; gap: 10px; margin-top: 25px; }
+    button.action-btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-on { background-color: #34a853; color: white; }
+    .btn-on:hover { background-color: #2d8e47; }
+    .btn-off { background-color: #ea4335; color: white; }
+    .btn-off:hover { background-color: #d3382c; }
+    button:disabled { background-color: #ccc; cursor: not-allowed; }
+    #status { margin-top: 20px; font-size: 14px; font-weight: 500; color: #666; text-align: center; }
+    
+    ol { padding-left: 20px; font-size: 14px; line-height: 1.6; color: #444; }
+    li { margin-bottom: 12px; }
+    .warning-box { 
+      background: #fef7e0; 
+      border-left: 4px solid #f9ab00; 
+      padding: 12px; 
+      font-size: 13px; 
+      font-weight: 500; 
+      color: #b06000; 
+      margin-bottom: 15px; 
+      border-radius: 0 6px 6px 0;
+    }
+  </style>
+</head>
+<body>
 
-    const newGroupConfig = {
-      email: GEMINI_GROUP_EMAIL,
-      name: "Gemini Active Students Sandbox",
-      description: "Automated timed gatekeeper system buffer group managed via Google Classroom Add-on script mechanics."
+  <div class="wrapper">
+    <div class="tabs">
+      <button class="tab-button active" onclick="switchTab(event, 'controlPanel')">🎛️ Control Panel</button>
+      <button class="tab-button" onclick="switchTab(event, 'setupGuide')">⚙️ Setup Guide</button>
+    </div>
+
+    <div id="controlPanel" class="tab-content active">
+     
+     <div style="text-align: center; margin-bottom: 10px;">
+  <svg width="80" height="80" viewBox="0 0 512 512" style="box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-radius: 18px;">
+    <rect width="512" height="512" rx="96" fill="#FFFFFF"/>
+    <path d="M256,64 C170,64 110,90 80,130 C80,260 110,380 256,448 Z" fill="#137333"/>
+    <path d="M256,64 C342,64 402,90 432,130 C432,260 402,380 256,448 Z" fill="#1A73E8"/>
+    <path d="M256,90 C256,90 120,140 110,240 C100,340 210,400 256,420 C302,400 412,340 402,240 C392,140 256,90 256,90 Z" fill="#000000" opacity="0.15"/>
+    <path d="M256,160 C256,220 220,256 160,256 C220,256 256,292 256,352 C256,292 292,256 352,256 C292,256 256,220 256,160 Z" fill="#F4B400"/>
+    <circle cx="256" cy="256" r="12" fill="#FFFFFF"/>
+  </svg>
+</div>
+     
+      <h2>Gemini Gatekeeper</h2>
+      <p class="subtitle">Give your students timed access to the Gemini App.</p>
+      
+      <div class="form-group">
+        <label for="classDropdown">1. Select Classroom</label>
+        <select id="classDropdown">
+          <option value="">Loading your classrooms...</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="durationDropdown">2. Select Duration</label>
+        <select id="durationDropdown">
+          <option value="15">15 Minutes</option>
+          <option value="30">30 Minutes</option>
+          <option value="60" selected>60 Minutes (Default)</option>
+          <option value="90">90 Minutes</option>
+          <option value="120">120 Minutes</option>
+        </select>
+      </div>
+      
+      <div class="btn-container">
+        <button class="action-btn btn-on" id="onBtn" onclick="toggleAI(true)" disabled>Turn ON AI</button>
+        <button class="action-btn btn-off" id="offBtn" onclick="toggleAI(false)" disabled>Turn OFF AI</button>
+      </div>
+      
+      <div id="status"></div>
+    </div>
+
+    <div id="setupGuide" class="tab-content">
+      <h3>Domain Activation Checklist</h3>
+<div class="warning-box">
+  <strong>Required Administrative Privileges</strong><br>
+  To complete activation, you must be a Google Workspace Super Admin or have an executive role with <strong>Group Management</strong> and <strong>Classroom Read</strong> privileges.
+</div>
+<ol>
+  <li>
+    <strong>Provision the Core Access Group:</strong> 
+    Go to your Admin Console (<em>Directory > Groups</em>) and create a security group named exactly: 
+    <br><code style="background:#eee; padding:2px 6px; border-radius:4px;">gemini-active-students@yourdomain.com</code>
+  </li>
+  <li>
+    <strong>Configure Gemini Age Restrictions:</strong>
+    In the Admin Console, navigate to <em>Generative AI > Gemini app > Service status</em>. Ensure that the service is turned <strong>ON</strong> for your new group, Then, navigate to <em>Account > Account settings > Age-based access setting</em>and be sure to mark your new group as under 18.
+  </li>
+  <li>
+    <strong>Authorize Data Access:</strong>
+    When launching this add-on for the first time as an admin, click "Accept Permissions" on the OAuth consent splash screen to allow the utility to sync roster states.
+  </li>
+</ol>
+    </div>
+  </div>
+
+  <script>
+    // Load courses immediately when workspace is mounted
+    window.onload = function() {
+      google.script.run
+        .withSuccessHandler(populateDropdown)
+        .withFailureHandler(showError)
+        .getTeacherClassrooms();
     };
-    
-    AdminDirectory.Groups.insert(newGroupConfig);
-    return "Successfully provisioned workspace security container.";
-  } catch (e) {
-    throw new Error("Directory automation exception mapping: " + e.message);
-  }
-}
 
-/**
- * Turns on Gemini access AND schedules the auto-deactivation trigger.
- */
-function turnOnGeminiWithTimer(courseId, durationMinutes) {
-  const activationStatus = turnOnGemini(courseId);
-  if (durationMinutes && durationMinutes > 0) {
-    scheduleAutoOff(courseId, durationMinutes);
-  }
-  return `${activationStatus} Auto-expiration set for ${durationMinutes} minutes.`;
-}
+    function switchTab(evt, tabId) {
+      const tabContents = document.getElementsByClassName("tab-content");
+      for (let i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove("active");
+      }
+      const tabButtons = document.getElementsByClassName("tab-button");
+      for (let i = 0; i < tabButtons.length; i++) {
+        tabButtons[i].classList.remove("active");
+      }
+      document.getElementById(tabId).classList.add("active");
+      evt.currentTarget.classList.add("active");
+    }
 
-/**
- * Adds student directory emails to the access group.
- */
-function turnOnGemini(courseId) {
-  let studentEmails = [];
-  let pageToken = null;
-  
-  do {
-    const response = Classroom.Courses.Students.list(courseId, { pageToken: pageToken, pageSize: 100 });
-    if (response.students) {
-      response.students.forEach(student => {
-        if (student.profile && student.profile.emailAddress) {
-          studentEmails.push(student.profile.emailAddress);
-        }
+    function populateDropdown(classrooms) {
+      const dropdown = document.getElementById('classDropdown');
+      dropdown.innerHTML = '';
+      
+      if (classrooms.length === 0) {
+        dropdown.innerHTML = '<option>No active classrooms found.</option>';
+        return;
+      }
+      
+      classrooms.forEach(c => {
+        let opt = document.createElement('option');
+        opt.value = c.id;
+        opt.innerHTML = c.name;
+        dropdown.appendChild(opt);
       });
+      
+      document.getElementById('onBtn').disabled = false;
+      document.getElementById('offBtn').disabled = false;
     }
-    pageToken = response.nextPageToken;
-  } while (pageToken);
-  
-  if (studentEmails.length === 0) return "No students found to activate.";
 
-  let successCount = 0;
-  studentEmails.forEach(email => {
-    try {
-      AdminDirectory.Members.insert({ email: email, role: "MEMBER" }, GEMINI_GROUP_EMAIL);
-      successCount++;
-    } catch (err) {
-      if (err.message.indexOf("already exists") > -1) {
-        successCount++; 
+    function toggleAI(isOn) {
+      const courseId = document.getElementById('classDropdown').value;
+      const duration = parseInt(document.getElementById('durationDropdown').value);
+      const statusDiv = document.getElementById('status');
+      
+      if (!courseId) return;
+      
+      statusDiv.innerHTML = isOn ? "🚀 Turning ON Gemini... setting timer." : "🛑 Turning OFF Gemini and clearing timers...";
+      document.getElementById('onBtn').disabled = true;
+      document.getElementById('offBtn').disabled = true;
+      
+      if (isOn) {
+        google.script.run
+          .withSuccessHandler(showStatus)
+          .withFailureHandler(showError)
+          .turnOnGeminiWithTimer(courseId, duration);
       } else {
-        throw new Error(`Admin API Error for ${email}: ` + err.message);
+        google.script.run
+          .withSuccessHandler(showStatus)
+          .withFailureHandler(showError)
+          .turnOffGemini(courseId);
       }
     }
-  });
 
-  return `Enabled Gemini for ${successCount} students.`;
-}
-
-/**
- * Turns off Gemini access and cleans up scheduled triggers.
- */
-function turnOffGemini(courseId) {
-  try {
-    let studentEmails = [];
-    let pageToken = null;
-    
-    do {
-      const response = Classroom.Courses.Students.list(courseId, { pageToken: pageToken, pageSize: 100 });
-      if (response.students) {
-        response.students.forEach(student => {
-          if (student.profile && student.profile.emailAddress) {
-            studentEmails.push(student.profile.emailAddress);
-          }
-        });
-      }
-      pageToken = response.nextPageToken;
-    } while (pageToken);
-
-    let removalCount = 0;
-    studentEmails.forEach(email => {
-      try {
-        AdminDirectory.Members.remove(GEMINI_GROUP_EMAIL, email);
-        removalCount++;
-      } catch (err) {
-        // Ignored if they weren't in the group
-      }
-    });
-
-    cancelAutoOffTriggers(courseId);
-    return `Disabled Gemini access for ${removalCount} students.`;
-  } catch (e) {
-    throw new Error("Deactivation execution failure: " + e.message);
-  }
-}
-
-/**
- * Programmatically creates a Time-driven trigger.
- */
-function scheduleAutoOff(courseId, minutes) {
-  const fireAt = new Date(Date.now() + minutes * 60 * 1000);
-  const userProperties = PropertiesService.getScriptProperties();
-  
-  const trigger = ScriptApp.newTrigger("autoOffTriggerHandler")
-    .timeBased()
-    .at(fireAt)
-    .create();
-    
-  userProperties.setProperty(trigger.getUniqueId(), courseId);
-}
-
-/**
- * Trigger Handler.
- */
-function autoOffTriggerHandler(e) {
-  const triggerId = e.triggerUid;
-  const userProperties = PropertiesService.getScriptProperties();
-  const courseId = userProperties.getProperty(triggerId);
-  
-  if (courseId) {
-    try {
-      turnOffGemini(courseId);
-      userProperties.deleteProperty(triggerId);
-    } catch (err) {
-      Logger.log("Timer auto-off failed: " + err.message);
+    function showStatus(msg) {
+      document.getElementById('status').innerHTML = msg;
+      document.getElementById('onBtn').disabled = false;
+      document.getElementById('offBtn').disabled = false;
     }
-  }
-  
-  const triggers = ScriptApp.getProjectTriggers();
-  triggers.forEach(t => {
-    if (t.getUniqueId() === triggerId) {
-      ScriptApp.deleteTrigger(t);
-    }
-  });
-}
 
-/**
- * Cancels pending triggers.
- */
-function cancelAutoOffTriggers(courseId) {
-  const userProperties = PropertiesService.getScriptProperties();
-  const triggers = ScriptApp.getProjectTriggers();
-  
-  triggers.forEach(t => {
-    const associatedCourseId = userProperties.getProperty(t.getUniqueId());
-    if (associatedCourseId === courseId) {
-      ScriptApp.deleteTrigger(t);
-      userProperties.deleteProperty(t.getUniqueId());
+    function showError(err) {
+      document.getElementById('status').innerHTML = "❌ Error: " + err.message;
+      document.getElementById('onBtn').disabled = false;
+      document.getElementById('offBtn').disabled = false;
     }
-  });
-}
+  </script>
+</body>
+</html>
