@@ -1,203 +1,357 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta name="google-site-verification" content="daBxlPtBoA4-NIi4JYqNUJ3NZmNsUWHROPgYNrpEqvk" />
-  <base target="_top">
-  <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: #f4f6f9;
-      color: #333;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Gemini Gatekeeper</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            googleBlue: '#1a73e8',
+            classroomGreen: '#137333',
+            geminiPurple: '#8ab4f8',
+            goldSparkle: '#f4b400',
+            darkSlate: '#0f172a'
+          }
+        }
+      }
     }
-    .wrapper {
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-      width: 450px;
-      overflow: hidden;
-    }
-    .tabs {
-      display: flex;
-      background: #f1f3f4;
-      border-bottom: 1px solid #ddd;
-    }
-    .tab-button {
-      flex: 1;
-      padding: 15px;
-      background: none;
-      border: none;
-      font-size: 14px;
-      font-weight: bold;
-      color: #555;
-      cursor: pointer;
-      outline: none;
-      transition: background 0.2s, color 0.2s;
-    }
-    .tab-button:hover { background: #e8eaed; }
-    .tab-button.active {
-      background: white;
-      color: #1a73e8;
-      border-bottom: 3px solid #1a73e8;
-    }
-    .tab-content {
-      padding: 30px;
-      display: none;
-    }
-    .tab-content.active { display: block; }
-    
-    h2 { color: #1a73e8; margin-top: 0; text-align: center; }
-    h3 { color: #b06000; margin-top: 0; }
-    p.subtitle { text-align: center; color: #666; margin-bottom: 25px; }
-    
-    .form-group { text-align: left; margin-bottom: 15px; }
-    label { font-size: 14px; font-weight: bold; color: #555; }
-    select {
-      width: 100%;
-      padding: 10px;
-      margin-top: 5px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      font-size: 15px;
-      box-sizing: border-box;
-    }
-    .btn-container { display: flex; justify-content: space-between; gap: 10px; margin-top: 25px; }
-    button.action-btn {
-      flex: 1;
-      padding: 12px;
-      border: none;
-      border-radius: 6px;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .btn-on { background-color: #34a853; color: white; }
-    .btn-on:hover { background-color: #2d8e47; }
-    .btn-off { background-color: #ea4335; color: white; }
-    .btn-off:hover { background-color: #d3382c; }
-    button:disabled { background-color: #ccc; cursor: not-allowed; }
-    #status { margin-top: 20px; font-size: 14px; font-weight: 500; color: #666; text-align: center; }
-    
-    ol { padding-left: 20px; font-size: 14px; line-height: 1.6; color: #444; }
-    li { margin-bottom: 12px; }
-    .warning-box { 
-      background: #fef7e0; 
-      border-left: 4px solid #f9ab00; 
-      padding: 12px; 
-      font-size: 13px; 
-      font-weight: 500; 
-      color: #b06000; 
-      margin-bottom: 15px; 
-      border-radius: 0 6px 6px 0;
-    }
-  </style>
+  </script>
 </head>
-<body>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex items-center justify-center p-4">
 
-  <div class="wrapper">
-    <div class="tabs">
-      <button class="tab-button active" onclick="switchTab(event, 'controlPanel')">🎛️ Control Panel</button>
-      <button class="tab-button" onclick="switchTab(event, 'setupGuide')">⚙️ Setup Guide</button>
+  <div class="w-full max-w-md bg-white rounded-3xl shadow-[0_15px_50px_rgba(0,0,0,0.06)] border border-slate-100 overflow-hidden">
+    
+    <div class="flex bg-slate-50 border-b border-slate-100">
+      <button id="tabBtnControl" onclick="switchTab('controlPanel')" class="flex-1 py-4 text-sm font-semibold flex items-center justify-center gap-2 border-b-2 border-googleBlue text-googleBlue transition-all duration-200">
+        🎛️ Control Panel
+      </button>
+      <button id="tabBtnSetup" onclick="switchTab('setupGuide')" class="flex-1 py-4 text-sm font-semibold flex items-center justify-center gap-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/30 transition-all duration-200">
+        ⚙️ Setup Guide
+      </button>
     </div>
 
-    <div id="controlPanel" class="tab-content active">
-     
-     <div style="text-align: center; margin-bottom: 10px;">
-  <svg width="80" height="80" viewBox="0 0 512 512" style="box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-radius: 18px;">
-    <rect width="512" height="512" rx="96" fill="#FFFFFF"/>
-    <path d="M256,64 C170,64 110,90 80,130 C80,260 110,380 256,448 Z" fill="#137333"/>
-    <path d="M256,64 C342,64 402,90 432,130 C432,260 402,380 256,448 Z" fill="#1A73E8"/>
-    <path d="M256,90 C256,90 120,140 110,240 C100,340 210,400 256,420 C302,400 412,340 402,240 C392,140 256,90 256,90 Z" fill="#000000" opacity="0.15"/>
-    <path d="M256,160 C256,220 220,256 160,256 C220,256 256,292 256,352 C256,292 292,256 352,256 C292,256 256,220 256,160 Z" fill="#F4B400"/>
-    <circle cx="256" cy="256" r="12" fill="#FFFFFF"/>
-  </svg>
-</div>
-     
-      <h2>Gemini Gatekeeper</h2>
-      <p class="subtitle">Give your students timed access to the Gemini App.</p>
+    <div class="p-8">
       
-      <div class="form-group">
-        <label for="classDropdown">1. Select Classroom</label>
-        <select id="classDropdown">
-          <option value="">Loading your classrooms...</option>
-        </select>
+      <div class="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-left">
+        <div class="flex justify-between items-center cursor-pointer" onclick="toggleConfig()">
+          <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">🔌 API Connection Settings</span>
+          <span id="configToggleIcon" class="text-xs text-slate-400">▼</span>
+        </div>
+        <div id="configFields" class="space-y-3 mt-3 hidden">
+          <div class="flex flex-col">
+            <label class="text-[10px] font-bold text-slate-500 uppercase">Google Apps Script Web API URL</label>
+            <input type="text" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/.../exec" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono outline-none focus:border-googleBlue" onchange="saveConfig()">
+          </div>
+          <div class="flex flex-col">
+            <label class="text-[10px] font-bold text-slate-500 uppercase">Google OAuth Client ID</label>
+            <input type="text" id="clientIdInput" placeholder="...apps.googleusercontent.com" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono outline-none focus:border-googleBlue" onchange="saveConfig()">
+          </div>
+        </div>
       </div>
 
-      <div class="form-group">
-        <label for="durationDropdown">2. Select Duration</label>
-        <select id="durationDropdown">
-          <option value="15">15 Minutes</option>
-          <option value="30">30 Minutes</option>
-          <option value="60" selected>60 Minutes (Default)</option>
-          <option value="90">90 Minutes</option>
-          <option value="120">120 Minutes</option>
-        </select>
-      </div>
-      
-      <div class="btn-container">
-        <button class="action-btn btn-on" id="onBtn" onclick="toggleAI(true)" disabled>Turn ON AI</button>
-        <button class="action-btn btn-off" id="offBtn" onclick="toggleAI(false)" disabled>Turn OFF AI</button>
-      </div>
-      
-      <div id="status"></div>
-    </div>
+      <div id="controlPanel" class="tab-content flex flex-col items-center">
+        <div class="mb-4 flex justify-center">
+          <div class="w-20 h-20 bg-white rounded-2xl shadow-[0_8px_24px_rgba(0,0,0,0.06)] border border-slate-100 flex items-center justify-center">
+            <svg class="w-16 h-16" viewBox="0 0 512 512">
+              <rect width="512" height="512" rx="96" fill="#FFFFFF"/>
+              <path d="M256,64 C170,64 110,90 80,130 C80,260 110,380 256,448 Z" fill="#137333"/>
+              <path d="M256,64 C342,64 402,90 432,130 C432,260 402,380 256,448 Z" fill="#1A73E8"/>
+              <path d="M256,90 C256,90 120,140 110,240 C100,340 210,400 256,420 C302,400 412,340 402,240 C392,140 256,90 256,90 Z" fill="#000000" opacity="0.15"/>
+              <path d="M256,160 C256,220 220,256 160,256 C220,256 256,292 256,352 C256,292 292,256 352,256 C292,256 256,220 256,160 Z" fill="#F4B400"/>
+              <circle cx="256" cy="256" r="12" fill="#FFFFFF"/>
+            </svg>
+          </div>
+        </div>
 
-    <div id="setupGuide" class="tab-content">
-      <h3>Domain Activation Checklist</h3>
-<div class="warning-box">
-  <strong>Required Administrative Privileges</strong><br>
-  To complete activation, you must be a Google Workspace Super Admin or have an executive role with <strong>Group Management</strong> and <strong>Classroom Read</strong> privileges.
-</div>
-<ol>
-  <li>
-    <strong>Provision the Core Access Group:</strong> 
-    Go to your Admin Console (<em>Directory > Groups</em>) and create a security group named exactly: 
-    <br><code style="background:#eee; padding:2px 6px; border-radius:4px;">gemini-active-students@yourdomain.com</code>
-  </li>
-  <li>
-    <strong>Configure Gemini Age Restrictions:</strong>
-    In the Admin Console, navigate to <em>Generative AI > Gemini app > Service status</em>. Ensure that the service is turned <strong>ON</strong> for your new group, Then, navigate to <em>Account > Account settings > Age-based access setting</em>and be sure to mark your new group as under 18.
-  </li>
-  <li>
-    <strong>Authorize Data Access:</strong>
-    When launching this add-on for the first time as an admin, click "Accept Permissions" on the OAuth consent splash screen to allow the utility to sync roster states.
-  </li>
-</ol>
+        <h2 class="text-2xl font-black text-googleBlue text-center tracking-tight">The Gemini Gatekeeper</h2>
+        <p class="text-sm text-slate-500 text-center mt-1 mb-6">Give your students timed access to the Gemini App.</p>
+
+        <div id="authGate" class="w-full py-6 flex flex-col items-center justify-center border border-dashed border-slate-200 rounded-2xl bg-slate-50/50 mb-4">
+          <p class="text-xs text-slate-500 text-center mb-4 px-4 leading-relaxed font-medium">Please sign in with your school workspace credentials to connect to your classrooms.</p>
+          <div id="gSignInWrapper">
+            <div id="gSignInBtn"></div>
+          </div>
+        </div>
+
+        <div id="formSection" class="w-full space-y-4 hidden">
+          
+          <div class="flex items-center justify-between bg-emerald-50 border border-emerald-100 p-3 rounded-xl mb-4">
+            <span id="userEmailSpan" class="text-xs font-bold text-emerald-800 truncate max-w-[200px]">Connected</span>
+            <button onclick="signOut()" class="text-[10px] uppercase font-bold text-slate-500 hover:text-slate-800">Disconnect</button>
+          </div>
+
+          <div class="flex flex-col text-left">
+            <label for="classDropdown" class="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">1. Select Classroom</label>
+            <div class="relative">
+              <select id="classDropdown" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 outline-none focus:border-googleBlue focus:ring-2 focus:ring-blue-100 transition duration-150 appearance-none">
+                <option value="">Fetching classrooms...</option>
+              </select>
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-col text-left">
+            <label for="durationDropdown" class="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">2. Select Duration</label>
+            <div class="relative">
+              <select id="durationDropdown" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 outline-none focus:border-googleBlue focus:ring-2 focus:ring-blue-100 transition duration-150 appearance-none">
+                <option value="15">15 Minutes</option>
+                <option value="30">30 Minutes</option>
+                <option value="60" selected>60 Minutes (Default)</option>
+                <option value="90">90 Minutes</option>
+                <option value="120">120 Minutes</option>
+              </select>
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex gap-4 w-full mt-6">
+            <button id="onBtn" onclick="toggleAI(true)" class="flex-1 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold py-3.5 px-6 rounded-2xl transition duration-150 shadow-lg shadow-emerald-100/50">
+              Turn ON AI
+            </button>
+            <button id="offBtn" onclick="toggleAI(false)" class="flex-1 bg-rose-500 hover:bg-rose-600 active:scale-98 text-white font-bold py-3.5 px-6 rounded-2xl transition duration-150 shadow-lg shadow-rose-100/50">
+              Turn OFF AI
+            </button>
+          </div>
+        </div>
+
+        <div id="status" class="mt-6 text-sm font-semibold text-slate-500 text-center leading-relaxed"></div>
+      </div>
+
+      <div id="setupGuide" class="tab-content hidden flex flex-col items-stretch">
+        <h2 class="text-xl font-extrabold text-slate-950 mb-1 flex items-center gap-2">
+          🚀 Setup Wizard Steps
+        </h2>
+        <p class="text-xs text-slate-500 mb-6 leading-relaxed">Follow these steps to authorize and link your workspace configurations.</p>
+
+        <div class="flex items-center gap-4 bg-slate-50 border border-slate-150 p-4 rounded-2xl mb-6">
+          <div class="flex flex-col">
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Progress</span>
+            <span id="stepIndicator" class="text-sm font-extrabold text-googleBlue mt-0.5">Step 1 of 4</span>
+          </div>
+          <div class="flex-1 bg-slate-200 h-2 rounded-full overflow-hidden">
+            <div id="stepProgressBar" class="bg-googleBlue h-full transition-all duration-300" style="width: 25%;"></div>
+          </div>
+        </div>
+
+        <div id="wizardStep1" class="wizard-step space-y-4">
+          <h4 class="font-bold text-slate-800 text-sm">Step 1: Create the Security Group</h4>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            We require a specific, designated Google Group to route timed student access. This wizard can programmatically deploy it via your active Admin APIs:
+          </p>
+          <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs font-mono text-slate-600 break-all leading-relaxed">
+            <strong class="text-slate-400 text-[10px] block uppercase font-sans tracking-wide mb-1">Target Group Email Address</strong>
+            gemini-active-students@anexampleschool.com
+          </div>
+          <button onclick="runAutomatedGroupCreation()" class="w-full bg-googleBlue hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-xl text-xs transition shadow-md shadow-blue-100 disabled:opacity-50" id="createGroupBtn">
+            ⚙️ Auto-Create This Group Now
+          </button>
+        </div>
+
+        <div id="wizardStep2" class="wizard-step hidden space-y-4">
+          <h4 class="font-bold text-slate-800 text-sm">Step 2: Assign Under-18 Safeguards</h4>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            Google Workspace security rules require that student age parameters be configured manually in your Admin Console.
+          </p>
+          <div class="bg-amber-50 border-l-4 border-amber-500 p-4 text-xs text-amber-900 rounded-r-xl space-y-2 leading-relaxed text-left">
+            <strong class="block text-amber-950">Action Steps:</strong>
+            <p>1. Open <a href="https://admin.google.com" target="_blank" class="underline font-bold hover:text-amber-700">admin.google.com</a> in a new tab.</p>
+            <p>2. Go to <strong>Account settings</strong> &gt; <strong>Age-based access settings</strong>.</p>
+            <p>3. Search for your newly created Group and ensure it is flagged as <strong>"Under 18"</strong>.</p>
+          </div>
+        </div>
+
+        <div id="wizardStep3" class="wizard-step hidden space-y-4">
+          <h4 class="font-bold text-slate-800 text-sm">Step 3: Route Core App Access</h4>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            Now, configure your Google Workspace so that Gemini access is gated exclusively by that group.
+          </p>
+          <div class="bg-blue-50 border-l-4 border-blue-500 p-4 text-xs text-blue-950 rounded-r-xl space-y-2 leading-relaxed text-left">
+            <strong class="block text-blue-900">Action Steps:</strong>
+            <p>1. Go to <strong>Apps</strong> &gt; <strong>Additional Google Services</strong> &gt; <strong>Gemini</strong>.</p>
+            <p>2. Select <strong>Service Status</strong>.</p>
+            <p>3. Use the left directory filter to select your group, and change its access switch to <span class="font-bold">ON</span>.</p>
+          </div>
+        </div>
+
+        <div id="wizardStep4" class="wizard-step hidden space-y-4">
+          <h4 class="font-bold text-slate-800 text-sm">Step 4: Secure Production Service Identity</h4>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            Ensure security by decoupling your master Super Admin account from everyday teacher access triggers.
+          </p>
+          <div class="bg-emerald-50 border-l-4 border-emerald-500 p-4 text-xs text-emerald-950 rounded-r-xl leading-relaxed text-left">
+            <strong class="block text-emerald-900 mb-1">Least Privilege Strategy:</strong>
+            Provision an isolated setup user account. Build a custom administrator role granting it ONLY <em>Group Member Management</em> privileges. Re-deploy this backend App Script executing strictly as that restricted user identity.
+          </div>
+        </div>
+
+        <div class="flex justify-between items-center border-t border-slate-100 pt-5 mt-6 gap-3">
+          <button onclick="moveWizard(-1)" id="wizPrevBtn" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+            Back
+          </button>
+          <button onclick="moveWizard(1)" id="wizNextBtn" class="flex-1 py-2.5 bg-googleBlue hover:bg-blue-600 text-white rounded-xl text-xs font-bold transition shadow-md shadow-blue-50">
+            Next Step
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
 
   <script>
-    // Load courses immediately when workspace is mounted
+    let savedIdToken = null;
+    let configVisible = false;
+
+    // Load connection settings from localStorage
     window.onload = function() {
-      google.script.run
-        .withSuccessHandler(populateDropdown)
-        .withFailureHandler(showError)
-        .getTeacherClassrooms();
+      const savedUrl = localStorage.getItem('gatekeeper_script_url');
+      const savedClientId = localStorage.getItem('gatekeeper_client_id');
+      
+      if (savedUrl) document.getElementById('scriptUrlInput').value = savedUrl;
+      if (savedClientId) document.getElementById('clientIdInput').value = savedClientId;
+      
+      if (savedClientId) {
+        initGoogleSignIn(savedClientId);
+      } else {
+        showStatus("⚠️ Enter your Client ID and Web API URL in the 'API Connection Settings' section above.");
+      }
     };
 
-    function switchTab(evt, tabId) {
-      const tabContents = document.getElementsByClassName("tab-content");
-      for (let i = 0; i < tabContents.length; i++) {
-        tabContents[i].classList.remove("active");
-      }
-      const tabButtons = document.getElementsByClassName("tab-button");
-      for (let i = 0; i < tabButtons.length; i++) {
-        tabButtons[i].classList.remove("active");
-      }
-      document.getElementById(tabId).classList.add("active");
-      evt.currentTarget.classList.add("active");
+    function toggleConfig() {
+      configVisible = !configVisible;
+      document.getElementById('configFields').style.display = configVisible ? 'block' : 'none';
+      document.getElementById('configToggleIcon').innerText = configVisible ? '▲' : '▼';
     }
 
+    function saveConfig() {
+      const url = document.getElementById('scriptUrlInput').value.trim();
+      const clientId = document.getElementById('clientIdInput').value.trim();
+      
+      localStorage.setItem('gatekeeper_script_url', url);
+      localStorage.setItem('gatekeeper_client_id', clientId);
+      
+      if (clientId) {
+        initGoogleSignIn(clientId);
+      }
+    }
+
+    // Initialize Google Single-Sign-On Popup
+    function initGoogleSignIn(clientId) {
+      try {
+        google.accounts.id.initialize({
+          client_id: clientId,
+          callback: handleCredentialResponse,
+          context: 'use'
+        });
+        
+        google.accounts.id.renderButton(
+          document.getElementById("gSignInBtn"),
+          { theme: "outline", size: "large", width: "320" }
+        );
+      } catch (err) {
+        showStatus("Error loading Google Auth. Check client ID configuration.");
+      }
+    }
+
+    // Google Sign-In Callback handler
+    function handleCredentialResponse(response) {
+      savedIdToken = response.credential;
+      
+      // Parse payload to display user email
+      const payload = JSON.parse(atob(savedIdToken.split('.')[1]));
+      document.getElementById('userEmailSpan').innerText = payload.email;
+      
+      // Show form interface, hide login gate
+      document.getElementById('authGate').classList.add('hidden');
+      document.getElementById('formSection').classList.remove('hidden');
+      
+      // Retrieve Course Directories via API
+      fetchClassrooms();
+    }
+
+    function signOut() {
+      savedIdToken = null;
+      document.getElementById('authGate').classList.remove('hidden');
+      document.getElementById('formSection').classList.add('hidden');
+      showStatus("Disconnected Google Session.");
+    }
+
+    // Fetch Backend Classrooms
+    function fetchClassrooms() {
+      callBackendAPI({ action: 'getTeacherClassrooms' }, function(result) {
+        populateDropdown(result);
+      }, function(err) {
+        showError(err);
+      });
+    }
+
+    // REST API Request Bridge Helper
+    function callBackendAPI(payload, successCallback, failureCallback) {
+      const scriptUrl = localStorage.getItem('gatekeeper_script_url');
+      if (!scriptUrl) {
+        failureCallback({ message: "No script Web App URL specified." });
+        return;
+      }
+
+      // Attach secure ID token
+      payload.idToken = savedIdToken;
+
+      // Safe cross-origin fetch request
+      fetch(scriptUrl, {
+        method: 'POST',
+        mode: 'cors',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: JSON.stringify(payload)
+      })
+      .then(response => response.json())
+      .then(res => {
+        if (res.success) {
+          successCallback(res.data);
+        } else {
+          failureCallback({ message: res.error });
+        }
+      })
+      .catch(err => {
+        failureCallback({ message: "Network error linking to Google Apps Script." });
+      });
+    }
+
+    // Tab Switching System
+    function switchTab(tabId) {
+      const contents = document.getElementsByClassName("tab-content");
+      for (let i = 0; i < contents.length; i++) {
+        contents[i].classList.add("hidden");
+      }
+      document.getElementById(tabId).classList.remove("hidden");
+
+      const tabControl = document.getElementById("tabBtnControl");
+      const tabSetup = document.getElementById("tabBtnSetup");
+
+      if (tabId === 'controlPanel') {
+        tabControl.className = "flex-1 py-4 text-sm font-semibold flex items-center justify-center gap-2 border-b-2 border-googleBlue text-googleBlue transition-all duration-200";
+        tabSetup.className = "flex-1 py-4 text-sm font-semibold flex items-center justify-center gap-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/30 transition-all duration-200";
+      } else {
+        tabSetup.className = "flex-1 py-4 text-sm font-semibold flex items-center justify-center gap-2 border-b-2 border-googleBlue text-googleBlue transition-all duration-200";
+        tabControl.className = "flex-1 py-4 text-sm font-semibold flex items-center justify-center gap-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/30 transition-all duration-200";
+      }
+    }
+
+    // Populate Course Selector
     function populateDropdown(classrooms) {
       const dropdown = document.getElementById('classDropdown');
       dropdown.innerHTML = '';
       
-      if (classrooms.length === 0) {
+      if (!classrooms || classrooms.length === 0) {
         dropdown.innerHTML = '<option>No active classrooms found.</option>';
         return;
       }
@@ -208,11 +362,9 @@
         opt.innerHTML = c.name;
         dropdown.appendChild(opt);
       });
-      
-      document.getElementById('onBtn').disabled = false;
-      document.getElementById('offBtn').disabled = false;
     }
 
+    // Toggle AI Operations
     function toggleAI(isOn) {
       const courseId = document.getElementById('classDropdown').value;
       const duration = parseInt(document.getElementById('durationDropdown').value);
@@ -220,21 +372,22 @@
       
       if (!courseId) return;
       
-      statusDiv.innerHTML = isOn ? "🚀 Turning ON Gemini... setting timer." : "🛑 Turning OFF Gemini and clearing timers...";
+      statusDiv.innerHTML = isOn ? "🚀 Turning ON Gemini... setting trigger." : "🛑 Turning OFF Gemini and clearing timers...";
       document.getElementById('onBtn').disabled = true;
       document.getElementById('offBtn').disabled = true;
       
-      if (isOn) {
-        google.script.run
-          .withSuccessHandler(showStatus)
-          .withFailureHandler(showError)
-          .turnOnGeminiWithTimer(courseId, duration);
-      } else {
-        google.script.run
-          .withSuccessHandler(showStatus)
-          .withFailureHandler(showError)
-          .turnOffGemini(courseId);
-      }
+      const action = isOn ? 'turnOnGeminiWithTimer' : 'turnOffGemini';
+      const apiPayload = {
+        action: action,
+        courseId: courseId,
+        durationMinutes: duration
+      };
+
+      callBackendAPI(apiPayload, function(msg) {
+        showStatus(msg);
+      }, function(err) {
+        showError(err);
+      });
     }
 
     function showStatus(msg) {
@@ -247,6 +400,42 @@
       document.getElementById('status').innerHTML = "❌ Error: " + err.message;
       document.getElementById('onBtn').disabled = false;
       document.getElementById('offBtn').disabled = false;
+    }
+
+    // Stepper Wizard Setup Tracking
+    let activeWizStep = 1;
+    const totalWizSteps = 4;
+
+    function moveWizard(direction) {
+      document.getElementById(`wizardStep${activeWizStep}`).classList.add("hidden");
+      
+      activeWizStep += direction;
+      if (activeWizStep < 1) activeWizStep = 1;
+      if (activeWizStep > totalWizSteps) activeWizStep = totalWizSteps;
+      
+      document.getElementById(`wizardStep${activeWizStep}`).classList.remove("hidden");
+      
+      document.getElementById("stepIndicator").innerText = `Step ${activeWizStep} of ${totalWizSteps}`;
+      document.getElementById("stepProgressBar").style.width = `${(activeWizStep / totalWizSteps) * 100}%`;
+      
+      document.getElementById("wizPrevBtn").disabled = (activeWizStep === 1);
+      document.getElementById("wizNextBtn").innerText = (activeWizStep === totalWizSteps) ? "Finish" : "Next Step";
+    }
+
+    // Automated Group Operations Calls
+    function runAutomatedGroupCreation() {
+      const btn = document.getElementById("createGroupBtn");
+      btn.disabled = true;
+      btn.innerText = "⏳ Deploying Security Directory Group...";
+      
+      callBackendAPI({ action: 'createNewAccessGroup' }, function(response) {
+         btn.className = "w-full bg-emerald-100 border border-emerald-300 text-emerald-800 font-bold py-3 px-4 rounded-xl text-xs cursor-not-allowed";
+         btn.innerText = "✔ Group Successfully Setup!";
+      }, function(err) {
+         alert("Automation Error: " + err.message);
+         btn.disabled = false;
+         btn.innerText = "⚙️ Auto-Create This Group Now";
+      });
     }
   </script>
 </body>
